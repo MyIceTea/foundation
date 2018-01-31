@@ -3,9 +3,12 @@
 namespace EsTeh\Foundation;
 
 use EsTeh\Http\Response\Body;
+use EsTeh\Routing\RouteNaming;
 use EsTeh\Http\Response\Header;
 use EsTeh\Routing\RouteMatching;
 use EsTeh\Routing\RouteCollection;
+use EsTeh\Foundation\Http\Middleware;
+use EsTeh\Foundation\Http\NextMiddleware;
 
 class HttpAction
 {
@@ -21,6 +24,9 @@ class HttpAction
 		$st = new RouteMatching(
 			RouteCollection::getAll()
 		);
+
+		RouteNaming::buildRouteNames();
+
 		if (! $st->uri()) {
 			$httpCode = 404;
 			$action = function () {
@@ -38,11 +44,17 @@ class HttpAction
 			};
 		}
 
-		$st = new Header(
-			[
-				"http_response_code" => $httpCode
-			]
-		);
+		if ($httpCode === 200) {
+			$st = new Middleware();
+			$st->initMiddleware();
+			$lastMiddlewareReturn = $st->latestMiddlewareReturn();
+
+			if (! ($lastMiddlewareReturn instanceof NextMiddleware)) {
+				$action = $lastMiddlewareReturn;
+			}
+		}
+
+		$st = new Header(["http_response_code" => $httpCode]);
 		$st->buildHeader();
 
 		$responses[] = $st;
